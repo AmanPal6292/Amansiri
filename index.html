@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Core Chat Room</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<style>
+body{
+    background:#0b141a;
+    color:white;
+    font-family:sans-serif;
+}
+
+html{
+    scroll-behavior:smooth;
+}
+
+::-webkit-scrollbar{
+    display:none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- JOIN SCREEN -->
+<div id="join-screen"
+class="h-screen flex items-center justify-center bg-[#0b141a] p-4">
+
+    <div class="w-full max-w-sm bg-[#111b21] p-6 rounded-3xl shadow-2xl border border-[#202c33]">
+
+        <h1 class="text-3xl font-black text-center text-green-400 mb-6">
+            CORE CHAT
+        </h1>
+
+        <div class="space-y-3">
+
+            <input
+            id="name"
+            placeholder="Your Name"
+            class="w-full bg-[#202c33] text-white rounded-xl px-4 py-3 outline-none border border-[#2a3942]"
+            >
+
+            <div class="flex gap-2">
+
+                <input
+                id="room"
+                placeholder="Room ID"
+                class="flex-1 bg-[#202c33] text-white rounded-xl px-4 py-3 outline-none border border-[#2a3942]"
+                >
+
+                <button
+                onclick="generateRoomId()"
+                class="bg-green-500 text-black px-4 rounded-xl font-bold">
+                    Create
+                </button>
+
+            </div>
+
+            <select
+            id="expiry"
+            class="w-full bg-[#202c33] text-white rounded-xl px-4 py-3 outline-none border border-[#2a3942]">
+
+                <option value="0">Permanent Messages</option>
+                <option value="300000">Delete After 5 Minutes</option>
+                <option value="600000">Delete After 10 Minutes</option>
+                <option value="900000">Delete After 15 Minutes</option>
+                <option value="3600000">Delete After 1 Hour</option>
+
+            </select>
+
+            <button
+            onclick="joinRoom()"
+            class="w-full bg-green-500 text-black font-bold py-3 rounded-xl">
+                Join Chat
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- CHAT SCREEN -->
+<div id="chat-screen"
+class="hidden h-screen flex flex-col bg-[#0b141a]">
+
+    <!-- TOP HEADER -->
+    <div class="bg-[#202c33] px-4 py-3 flex items-center justify-between shadow-lg">
+
+        <div>
+
+            <h2 class="font-bold text-white text-lg">
+                Room :
+                <span id="room-name"></span>
+            </h2>
+
+            <div id="users" class="flex flex-wrap gap-2 mt-1 text-xs">
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- CHAT BOX -->
+    <div id="chat-box"
+    class="flex-1 overflow-y-auto px-3 py-4 space-y-3">
+    </div>
+
+    <!-- MESSAGE INPUT -->
+    <div class="bg-[#202c33] p-3 flex gap-2">
+
+        <input
+        id="message"
+        placeholder="Type a message"
+        class="flex-1 bg-[#2a3942] text-white rounded-full px-4 py-3 outline-none"
+        >
+
+        <button
+        onclick="sendMessage()"
+        class="bg-green-500 text-black w-12 h-12 rounded-full font-bold">
+            ➤
+        </button>
+
+    </div>
+
+</div>
+
+<script>
+
+const firebaseConfig = {
+    apiKey: "AIzaSyDjwR6uPPL4qxJhFVwb2rPcbfz0rIoZuAg",
+    authDomain: "chat-58fef.firebaseapp.com",
+    databaseURL: "https://chat-58fef-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    projectId: "chat-58fef",
+    storageBucket: "chat-58fef.firebasestorage.app",
+    messagingSenderId: "40301981187",
+    appId: "1:40301981187:web:8a0efad79a57321c7be836"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.database();
+
+let currentRoom = '';
+let currentName = '';
+let currentExpiry = 0;
+
+const chatBox = document.getElementById('chat-box');
+const usersBox = document.getElementById('users');
+
+function generateRoomId(){
+
+    const id = Math.random()
+    .toString(36)
+    .substring(2,7);
+
+    document.getElementById('room').value = id;
+
+    navigator.clipboard.writeText(id);
+
+    alert('Room ID Copied');
+}
+
+function joinRoom(){
+
+    currentName = document.getElementById('name').value.trim();
+    currentRoom = document.getElementById('room').value.trim();
+
+    if(!currentName || !currentRoom){
+        alert('Enter Name & Room');
+        return;
+    }
+
+    currentExpiry = Number(document.getElementById('expiry').value);
+
+    // SAME FIREBASE LOGIC
+    db.ref('rooms/' + currentRoom + '/settings').set({
+        expiry: currentExpiry
+    });
+
+    db.ref('rooms/' + currentRoom + '/users/' + currentName).set(true);
+
+    db.ref('rooms/' + currentRoom + '/users/' + currentName).onDisconnect().remove();
+
+    document.getElementById('join-screen').classList.add('hidden');
+
+    document.getElementById('chat-screen').classList.remove('hidden');
+
+    document.getElementById('room-name').textContent = currentRoom;
+
+    db.ref('rooms/' + currentRoom + '/users').on('value',(snapshot)=>{
+
+        usersBox.innerHTML = '';
+
+        const users = snapshot.val() || {};
+
+        Object.keys(users).slice(0,5).forEach((name)=>{
+
+            const div = document.createElement('div');
+
+            div.className = 'bg-[#2a3942] px-3 py-1 rounded-full text-white';
+
+            div.textContent = name;
+
+            usersBox.appendChild(div);
+
+        });
+
+    });
+
+    db.ref('rooms/' + currentRoom + '/messages').on('child_added',(snapshot)=>{
+
+        const data = snapshot.val();
+
+        addMessage(data.name,data.text,data.name === currentName);
+
+    });
+
+}
+
+function sendMessage(){
+
+    const input = document.getElementById('message');
+
+    const text = input.value.trim();
+
+    if(!text) return;
+
+    if(!currentRoom){
+        alert('Join Room First');
+        return;
+    }
+
+    db.ref('rooms/' + currentRoom + '/messages').push({
+        name: currentName,
+        text: text,
+        time: Date.now()
+    });
+
+    input.value = '';
+}
+
+function addMessage(name,text,mine){
+
+    const wrapper = document.createElement('div');
+
+    wrapper.className = mine ? 'text-right' : 'text-left';
+
+    const box = document.createElement('div');
+
+    box.className = mine
+    ? 'bg-[#005c4b] text-white inline-block px-4 py-2 rounded-2xl max-w-[80%]'
+    : 'bg-[#202c33] text-white inline-block px-4 py-2 rounded-2xl max-w-[80%]';
+
+    const username = document.createElement('div');
+
+    username.className = 'text-[10px] font-bold mb-1 opacity-70';
+
+    username.textContent = name;
+
+    const message = document.createElement('div');
+
+    message.className = 'text-sm break-words';
+
+    message.textContent = text;
+
+    box.appendChild(username);
+    box.appendChild(message);
+
+    wrapper.appendChild(box);
+
+    chatBox.appendChild(wrapper);
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+document.getElementById('message').addEventListener('keypress',(e)=>{
+
+    if(e.key === 'Enter'){
+        sendMessage();
+    }
+
+});
+
+// AUTO CLEANUP SAME
+setInterval(()=>{
+
+    if(!currentRoom) return;
+
+    db.ref('rooms/' + currentRoom + '/settings').once('value',(settingsSnap)=>{
+
+        const settings = settingsSnap.val() || {};
+        const expiry = settings.expiry || 0;
+
+        if(expiry === 0) return;
+
+        db.ref('rooms/' + currentRoom + '/messages')
+        .once('value',(snapshot)=>{
+
+            snapshot.forEach((child)=>{
+
+                const data = child.val();
+
+                if(Date.now() - data.time > expiry){
+                    child.ref.remove();
+                }
+
+            });
+
+        });
+
+    });
+
+},30000);
+
+</script>
+
+</body>
+</html>
