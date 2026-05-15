@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Core Chat Room</title>
+<title>AMAN CHAT</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -11,17 +11,13 @@
 
 <style>
 body{
-    background:#0b141a;
-    color:white;
-    font-family:sans-serif;
+background:#0b141a;
+color:white;
+font-family:sans-serif;
+overflow:hidden;
 }
-
-html{
-    scroll-behavior:smooth;
-}
-
 ::-webkit-scrollbar{
-    display:none;
+display:none;
 }
 </style>
 </head>
@@ -30,117 +26,109 @@ html{
 
 <!-- JOIN SCREEN -->
 <div id="join-screen"
-class="h-screen flex items-center justify-center bg-[#0b141a] p-4">
+class="h-screen flex items-center justify-center p-4">
 
-    <div class="w-full max-w-sm bg-[#111b21] p-6 rounded-3xl shadow-2xl border border-[#202c33]">
+<div class="w-full max-w-sm bg-[#111b21] p-6 rounded-3xl">
 
-        <h1 class="text-3xl font-black text-center text-green-400 mb-6">
-            CORE CHAT
-        </h1>
+<h1 class="text-3xl font-black text-center text-green-400 mb-6">
+AMAN CHAT
+</h1>
 
-        <div class="space-y-3">
+<div class="space-y-3">
 
-            <input
-            id="name"
-            placeholder="Your Name"
-            class="w-full bg-[#202c33] text-white rounded-xl px-4 py-3 outline-none border border-[#2a3942]"
-            >
+<input
+id="name"
+placeholder="Your Name"
+class="w-full bg-[#202c33] rounded-xl px-4 py-3 outline-none"
+>
 
-            <div class="flex gap-2">
+<div class="flex gap-2">
 
-                <input
-                id="room"
-                placeholder="Room ID"
-                class="flex-1 bg-[#202c33] text-white rounded-xl px-4 py-3 outline-none border border-[#2a3942]"
-                >
+<input
+id="room"
+placeholder="Room ID"
+class="flex-1 bg-[#202c33] rounded-xl px-4 py-3 outline-none"
+>
 
-                <button
-                onclick="generateRoomId()"
-                class="bg-green-500 text-black px-4 rounded-xl font-bold">
-                    Create
-                </button>
+<button
+onclick="generateRoomId()"
+class="bg-green-500 text-black px-4 rounded-xl font-bold">
+Create
+</button>
 
-            </div>
+</div>
 
-            <select
-            id="expiry"
-            class="w-full bg-[#202c33] text-white rounded-xl px-4 py-3 outline-none border border-[#2a3942]">
+<button
+onclick="joinRoom()"
+class="w-full bg-green-500 text-black py-3 rounded-xl font-bold">
+Join Chat
+</button>
 
-                <option value="0">Permanent Messages</option>
-                <option value="300000">Delete After 5 Minutes</option>
-                <option value="600000">Delete After 10 Minutes</option>
-                <option value="900000">Delete After 15 Minutes</option>
-                <option value="3600000">Delete After 1 Hour</option>
+</div>
 
-            </select>
-
-            <button
-            onclick="joinRoom()"
-            class="w-full bg-green-500 text-black font-bold py-3 rounded-xl">
-                Join Chat
-            </button>
-
-        </div>
-
-    </div>
-
+</div>
 </div>
 
 <!-- CHAT SCREEN -->
 <div id="chat-screen"
-class="hidden h-screen flex flex-col bg-[#0b141a]">
+class="hidden h-screen flex flex-col">
 
-    <!-- TOP HEADER -->
-    <div class="bg-[#202c33] px-4 py-3 flex items-center justify-between shadow-lg">
+<!-- HEADER -->
+<div class="bg-[#202c33] p-4 flex justify-between items-center">
 
-        <div>
+<div>
+<h2 class="font-bold text-lg">
+Room :
+<span id="room-name"></span>
+</h2>
 
-            <h2 class="font-bold text-white text-lg">
-                Room :
-                <span id="room-name"></span>
-            </h2>
+<div id="users"
+class="flex gap-2 flex-wrap mt-2 text-xs">
+</div>
+</div>
 
-            <div id="users" class="flex flex-wrap gap-2 mt-1 text-xs">
-            </div>
+<button
+onclick="leaveChat()"
+class="bg-red-500 px-4 py-2 rounded-xl text-sm font-bold">
+Leave
+</button>
 
-        </div>
+</div>
 
-    </div>
+<!-- CHAT -->
+<div id="chat-box"
+class="flex-1 overflow-y-auto p-3 space-y-3">
+</div>
 
-    <!-- CHAT BOX -->
-    <div id="chat-box"
-    class="flex-1 overflow-y-auto px-3 py-4 space-y-3">
-    </div>
+<!-- INPUT -->
+<div class="bg-[#202c33] p-3 flex gap-2">
 
-    <!-- MESSAGE INPUT -->
-    <div class="bg-[#202c33] p-3 flex gap-2">
+<input
+id="message"
+placeholder="Type message"
+class="flex-1 bg-[#2a3942] rounded-full px-4 py-3 outline-none"
+>
 
-        <input
-        id="message"
-        placeholder="Type a message"
-        class="flex-1 bg-[#2a3942] text-white rounded-full px-4 py-3 outline-none"
-        >
+<button
+onclick="sendMessage()"
+class="bg-green-500 text-black w-12 h-12 rounded-full font-bold">
+➤
+</button>
 
-        <button
-        onclick="sendMessage()"
-        class="bg-green-500 text-black w-12 h-12 rounded-full font-bold">
-            ➤
-        </button>
-
-    </div>
+</div>
 
 </div>
 
 <script>
 
 const firebaseConfig = {
-    apiKey: "AIzaSyDjwR6uPPL4qxJhFVwb2rPcbfz0rIoZuAg",
-    authDomain: "chat-58fef.firebaseapp.com",
-    databaseURL: "https://chat-58fef-default-rtdb.asia-southeast1.firebasedatabase.app/",
-    projectId: "chat-58fef",
-    storageBucket: "chat-58fef.firebasestorage.app",
-    messagingSenderId: "40301981187",
-    appId: "1:40301981187:web:8a0efad79a57321c7be836"
+apiKey: "AIzaSyDjwR6uPPL4qxJhFVwb2rPcbfz0rIoZuAg",
+authDomain: "chat-58fef.firebaseapp.com",
+databaseURL: "https://chat-58fef-default-rtdb.asia-southeast1.firebasedatabase.app/",
+projectId: "chat-58fef",
+storageBucket: "chat-58fef.firebasestorage.app",
+messagingSenderId: "40301981187",
+appId: "1:40301981187:web:8a0efad79a57321c7be836"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -149,175 +137,244 @@ const db = firebase.database();
 
 let currentRoom = '';
 let currentName = '';
-let currentExpiry = 0;
 
 const chatBox = document.getElementById('chat-box');
 const usersBox = document.getElementById('users');
 
 function generateRoomId(){
 
-    const id = Math.random()
-    .toString(36)
-    .substring(2,7);
+const id = Math.random()
+.toString(36)
+.substring(2,7);
 
-    document.getElementById('room').value = id;
+document.getElementById('room').value = id;
 
-    navigator.clipboard.writeText(id);
+navigator.clipboard.writeText(id);
 
-    alert('Room ID Copied');
+alert('Room ID Copied');
+
 }
 
 function joinRoom(){
 
-    currentName = document.getElementById('name').value.trim();
-    currentRoom = document.getElementById('room').value.trim();
+currentName = document.getElementById('name').value.trim();
+currentRoom = document.getElementById('room').value.trim();
 
-    if(!currentName || !currentRoom){
-        alert('Enter Name & Room');
-        return;
-    }
+if(!currentName || !currentRoom){
+alert('Enter Name & Room');
+return;
+}
 
-    currentExpiry = Number(document.getElementById('expiry').value);
+db.ref('rooms/' + currentRoom + '/users/' + currentName).set(true);
 
-    // SAME FIREBASE LOGIC
-    db.ref('rooms/' + currentRoom + '/settings').set({
-        expiry: currentExpiry
-    });
+db.ref('rooms/' + currentRoom + '/users/' + currentName)
+.onDisconnect()
+.remove();
 
-    db.ref('rooms/' + currentRoom + '/users/' + currentName).set(true);
+document.getElementById('join-screen').classList.add('hidden');
+document.getElementById('chat-screen').classList.remove('hidden');
 
-    db.ref('rooms/' + currentRoom + '/users/' + currentName).onDisconnect().remove();
+document.getElementById('room-name').textContent = currentRoom;
 
-    document.getElementById('join-screen').classList.add('hidden');
+loadUsers();
+loadMessages();
 
-    document.getElementById('chat-screen').classList.remove('hidden');
+}
 
-    document.getElementById('room-name').textContent = currentRoom;
+function loadUsers(){
 
-    db.ref('rooms/' + currentRoom + '/users').on('value',(snapshot)=>{
+db.ref('rooms/' + currentRoom + '/users')
+.on('value',(snapshot)=>{
 
-        usersBox.innerHTML = '';
+usersBox.innerHTML = '';
 
-        const users = snapshot.val() || {};
+const users = snapshot.val() || {};
 
-        Object.keys(users).slice(0,5).forEach((name)=>{
+Object.keys(users).forEach((name)=>{
 
-            const div = document.createElement('div');
+const div = document.createElement('div');
 
-            div.className = 'bg-[#2a3942] px-3 py-1 rounded-full text-white';
+div.className =
+'bg-[#2a3942] px-3 py-1 rounded-full';
 
-            div.textContent = name;
+div.textContent = name;
 
-            usersBox.appendChild(div);
+usersBox.appendChild(div);
 
-        });
+});
 
-    });
+});
 
-    db.ref('rooms/' + currentRoom + '/messages').on('child_added',(snapshot)=>{
+}
 
-        const data = snapshot.val();
+function loadMessages(){
 
-        addMessage(data.name,data.text,data.name === currentName);
+chatBox.innerHTML = '';
 
-    });
+db.ref('rooms/' + currentRoom + '/messages')
+.on('child_added',(snapshot)=>{
+
+const data = snapshot.val();
+
+markSeen(snapshot.key);
+
+addMessage(snapshot.key,data);
+
+});
 
 }
 
 function sendMessage(){
 
-    const input = document.getElementById('message');
+const input = document.getElementById('message');
 
-    const text = input.value.trim();
+const text = input.value.trim();
 
-    if(!text) return;
+if(!text) return;
 
-    if(!currentRoom){
-        alert('Join Room First');
-        return;
-    }
+db.ref('rooms/' + currentRoom + '/messages').push({
 
-    db.ref('rooms/' + currentRoom + '/messages').push({
-        name: currentName,
-        text: text,
-        time: Date.now()
-    });
-
-    input.value = '';
+name: currentName,
+text: text,
+time: Date.now(),
+seenBy: {
+[currentName]: true
 }
-
-function addMessage(name,text,mine){
-
-    const wrapper = document.createElement('div');
-
-    wrapper.className = mine ? 'text-right' : 'text-left';
-
-    const box = document.createElement('div');
-
-    box.className = mine
-    ? 'bg-[#005c4b] text-white inline-block px-4 py-2 rounded-2xl max-w-[80%]'
-    : 'bg-[#202c33] text-white inline-block px-4 py-2 rounded-2xl max-w-[80%]';
-
-    const username = document.createElement('div');
-
-    username.className = 'text-[10px] font-bold mb-1 opacity-70';
-
-    username.textContent = name;
-
-    const message = document.createElement('div');
-
-    message.className = 'text-sm break-words';
-
-    message.textContent = text;
-
-    box.appendChild(username);
-    box.appendChild(message);
-
-    wrapper.appendChild(box);
-
-    chatBox.appendChild(wrapper);
-
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-document.getElementById('message').addEventListener('keypress',(e)=>{
-
-    if(e.key === 'Enter'){
-        sendMessage();
-    }
 
 });
 
-// AUTO CLEANUP SAME
-setInterval(()=>{
+input.value = '';
 
-    if(!currentRoom) return;
+}
 
-    db.ref('rooms/' + currentRoom + '/settings').once('value',(settingsSnap)=>{
+function markSeen(messageId){
 
-        const settings = settingsSnap.val() || {};
-        const expiry = settings.expiry || 0;
+db.ref('rooms/' + currentRoom + '/messages/' + messageId + '/seenBy/' + currentName)
+.set(true);
 
-        if(expiry === 0) return;
+}
 
-        db.ref('rooms/' + currentRoom + '/messages')
-        .once('value',(snapshot)=>{
+function deleteMessage(messageId){
 
-            snapshot.forEach((child)=>{
+db.ref('rooms/' + currentRoom + '/messages/' + messageId)
+.remove();
 
-                const data = child.val();
+}
 
-                if(Date.now() - data.time > expiry){
-                    child.ref.remove();
-                }
+function leaveChat(){
 
-            });
+db.ref('rooms/' + currentRoom + '/users/' + currentName)
+.remove();
 
-        });
+location.reload();
 
-    });
+}
 
-},30000);
+function addMessage(id,data){
+
+const mine = data.name === currentName;
+
+const wrapper = document.createElement('div');
+
+wrapper.className = mine
+? 'text-right'
+: 'text-left';
+
+const box = document.createElement('div');
+
+box.className = mine
+? 'bg-[#005c4b] inline-block px-4 py-2 rounded-2xl max-w-[80%]'
+: 'bg-[#202c33] inline-block px-4 py-2 rounded-2xl max-w-[80%]';
+
+const username = document.createElement('div');
+
+username.className =
+'text-[10px] opacity-70 mb-1';
+
+username.textContent = data.name;
+
+const message = document.createElement('div');
+
+message.className = 'text-sm break-words';
+
+message.textContent = data.text;
+
+const bottom = document.createElement('div');
+
+bottom.className =
+'flex justify-between items-center mt-2 gap-3';
+
+const seen = document.createElement('div');
+
+seen.className =
+'text-[10px] opacity-70';
+
+if(mine){
+
+const seenCount = data.seenBy
+? Object.keys(data.seenBy).length
+: 1;
+
+seen.innerHTML = seenCount > 1
+? '✓✓ Seen'
+: '✓ Sent';
+
+}
+
+const delBtn = document.createElement('button');
+
+delBtn.className =
+'text-[10px] bg-red-500 px-2 py-1 rounded-lg';
+
+delBtn.textContent = 'Delete';
+
+delBtn.onclick = () => deleteMessage(id);
+
+box.appendChild(username);
+box.appendChild(message);
+
+if(mine){
+
+bottom.appendChild(seen);
+bottom.appendChild(delBtn);
+
+box.appendChild(bottom);
+
+}
+
+wrapper.appendChild(box);
+
+chatBox.appendChild(wrapper);
+
+chatBox.scrollTop = chatBox.scrollHeight;
+
+db.ref('rooms/' + currentRoom + '/messages/' + id + '/seenBy')
+.on('value',(snap)=>{
+
+if(mine){
+
+const seenUsers = snap.val() || {};
+
+const count = Object.keys(seenUsers).length;
+
+seen.innerHTML = count > 1
+? '✓✓ Seen'
+: '✓ Sent';
+
+}
+
+});
+
+}
+
+document.getElementById('message')
+.addEventListener('keypress',(e)=>{
+
+if(e.key === 'Enter'){
+sendMessage();
+}
+
+});
 
 </script>
 
