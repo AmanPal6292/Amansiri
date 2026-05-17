@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <style>
 body{
@@ -71,7 +72,7 @@ Join Chat
 
 <!-- CHAT SCREEN -->
 <div id="chat-screen"
-class="hidden h-screen flex flex-col">
+class="hidden h-screen flex flex-col overflow-hidden">
 
 <!-- HEADER -->
 <div class="bg-[#202c33] p-4 flex justify-between items-center">
@@ -97,11 +98,29 @@ Leave
 
 <!-- CHAT -->
 <div id="chat-box"
-class="flex-1 overflow-y-auto p-3 space-y-3">
+class="flex-1 overflow-y-auto p-3 space-y-3 pb-24">
+</div>
+
+
+<div id="typing" class="px-4 text-xs text-green-400"></div>
+
+<div id="reply-box"
+class="hidden bg-[#202c33] mx-3 mb-2 px-3 py-2 rounded-xl text-sm">
 </div>
 
 <!-- INPUT -->
-<div class="bg-[#202c33] p-3 flex gap-2">
+
+
+<div class="bg-[#202c33] p-3 flex gap-2 fixed bottom-0 left-0 right-0 z-50">
+
+<input type="file" id="imageInput" accept="image/*" class="hidden">
+
+<button
+onclick="document.getElementById('imageInput').click()"
+class="bg-[#2a3942] w-12 h-12 rounded-full">
+📷
+</button>
+
 
 <input
 id="message"
@@ -134,9 +153,11 @@ appId: "1:40301981187:web:8a0efad79a57321c7be836"
 firebase.initializeApp(firebaseConfig);
 
 const db = firebase.database();
+const storage = firebase.storage();
 
 let currentRoom = '';
 let currentName = '';
+let replyMessage = null;
 
 const chatBox = document.getElementById('chat-box');
 const usersBox = document.getElementById('users');
@@ -178,6 +199,14 @@ document.getElementById('room-name').textContent = currentRoom;
 
 loadUsers();
 loadMessages();
+
+db.ref('rooms/' + currentRoom + '/typing')
+.on('value',(snap)=>{
+
+document.getElementById('typing').innerText =
+snap.val() || '';
+
+});
 
 }
 
@@ -230,12 +259,13 @@ const input = document.getElementById('message');
 
 const text = input.value.trim();
 
-if(!text) return;
+if(!text && !replyMessage) return;
 
 db.ref('rooms/' + currentRoom + '/messages').push({
 
 name: currentName,
 text: text,
+reply: replyMessage || null,
 time: Date.now(),
 seenBy: {
 [currentName]: true
@@ -244,6 +274,10 @@ seenBy: {
 });
 
 input.value = '';
+
+replyMessage = null;
+
+document.getElementById('reply-box').classList.add('hidden');
 
 }
 
@@ -260,6 +294,67 @@ db.ref('rooms/' + currentRoom + '/messages/' + messageId)
 .remove();
 
 }
+
+
+function setReply(text){
+
+replyMessage = text;
+
+const box = document.getElementById('reply-box');
+
+box.classList.remove('hidden');
+
+box.innerText = 'Replying : ' + text;
+
+}
+
+document.getElementById('message')
+.addEventListener('input',()=>{
+
+if(!currentRoom) return;
+
+db.ref('rooms/' + currentRoom + '/typing')
+.set(currentName + ' is typing...');
+
+clearTimeout(window.typingTimeout);
+
+window.typingTimeout = setTimeout(()=>{
+
+db.ref('rooms/' + currentRoom + '/typing')
+.remove();
+
+},1000);
+
+});
+
+document.getElementById('imageInput')
+.addEventListener('change',async(e)=>{
+
+const file = e.target.files[0];
+
+if(!file) return;
+
+const fileName = Date.now() + '_' + file.name;
+
+const storageRef = storage.ref('chatImages/' + fileName);
+
+await storageRef.put(file);
+
+const imageUrl = await storageRef.getDownloadURL();
+
+db.ref('rooms/' + currentRoom + '/messages').push({
+
+name: currentName,
+image: imageUrl,
+time: Date.now(),
+seenBy: {
+[currentName]: true
+}
+
+});
+
+});
+
 
 function leaveChat(){
 
@@ -333,6 +428,32 @@ delBtn.onclick = () => deleteMessage(id);
 box.appendChild(username);
 box.appendChild(message);
 
+if(data.reply){
+
+const reply = document.createElement('div');
+
+reply.className =
+'text-xs opacity-70 border-l-2 border-green-400 pl-2 mb-2';
+
+reply.textContent = data.reply;
+
+box.insertBefore(reply,message);
+
+}
+
+if(data.image){
+
+const img = document.createElement('img');
+
+img.src = data.image;
+
+img.className =
+'rounded-xl mt-2 max-w-[220px]';
+
+box.appendChild(img);
+
+}
+
 if(mine){
 
 bottom.appendChild(seen);
@@ -341,6 +462,12 @@ bottom.appendChild(delBtn);
 box.appendChild(bottom);
 
 }
+
+box.addEventListener('click',()=>{
+
+setReply(data.text || 'Image');
+
+});
 
 wrapper.appendChild(box);
 
