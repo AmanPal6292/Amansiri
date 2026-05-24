@@ -1,509 +1,399 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AMAN CHAT</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AMAN CHAT</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <!-- Tailwind and Firebase CDN Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
-<style>
-body{
-background:#0b141a;
-color:white;
-font-family:sans-serif;
-overflow:hidden;
-}
-::-webkit-scrollbar{
-display:none;
-}
-</style>
+  <style>
+    body {
+      background: #0b141a;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
 </head>
 
 <body>
 
-<!-- JOIN SCREEN -->
-<div id="join-screen"
-class="h-screen flex items-center justify-center p-4">
-
-<div class="w-full max-w-sm bg-[#111b21] p-6 rounded-3xl">
-
-<h1 class="text-3xl font-black text-center text-green-400 mb-6">
-AMAN CHAT
-</h1>
-
-<div class="space-y-3">
-
-<input
-id="name"
-placeholder="Your Name"
-class="w-full bg-[#202c33] rounded-xl px-4 py-3 outline-none"
->
-
-<div class="flex gap-2">
-
-<input
-id="room"
-placeholder="Room ID"
-class="flex-1 bg-[#202c33] rounded-xl px-4 py-3 outline-none"
->
-
-<button
-onclick="generateRoomId()"
-class="bg-green-500 text-black px-4 rounded-xl font-bold">
-Create
-</button>
-
-</div>
-
-<button
-onclick="joinRoom()"
-class="w-full bg-green-500 text-black py-3 rounded-xl font-bold">
-Join Chat
-</button>
-
-</div>
-
-</div>
-</div>
-
-<!-- CHAT SCREEN -->
-<div id="chat-screen"
-class="hidden h-screen flex flex-col overflow-hidden">
-
-<!-- HEADER -->
-<div class="bg-[#202c33] p-4 flex justify-between items-center">
-
-<div>
-<h2 class="font-bold text-lg">
-Room :
-<span id="room-name"></span>
-</h2>
-
-<div id="users"
-class="flex gap-2 flex-wrap mt-2 text-xs">
-</div>
-</div>
-
-<button
-onclick="leaveChat()"
-class="bg-red-500 px-4 py-2 rounded-xl text-sm font-bold">
-Leave
-</button>
-
-</div>
-
-<!-- CHAT -->
-<div id="chat-box"
-class="flex-1 overflow-y-auto p-3 space-y-3 pb-24">
-</div>
-
-
-<div id="typing" class="px-4 text-xs text-green-400"></div>
-
-<div id="reply-box"
-class="hidden bg-[#202c33] mx-3 mb-2 px-3 py-2 rounded-xl text-sm">
-</div>
-
-<!-- INPUT -->
-
-
-<div class="bg-[#202c33] p-3 flex gap-2 fixed bottom-0 left-0 right-0 z-50">
-
-<input type="file" id="imageInput" accept="image/*" class="hidden">
-
-<button
-onclick="document.getElementById('imageInput').click()"
-class="bg-[#2a3942] w-12 h-12 rounded-full">
-📷
-</button>
-
-
-<input
-id="message"
-placeholder="Type message"
-class="flex-1 bg-[#2a3942] rounded-full px-4 py-3 outline-none"
->
-
-<button
-onclick="sendMessage()"
-class="bg-green-500 text-black w-12 h-12 rounded-full font-bold">
-➤
-</button>
-
-</div>
-
-</div>
-
-<script>
-
-const firebaseConfig = {
-apiKey: "AIzaSyDjwR6uPPL4qxJhFVwb2rPcbfz0rIoZuAg",
-authDomain: "chat-58fef.firebaseapp.com",
-databaseURL: "https://chat-58fef-default-rtdb.asia-southeast1.firebasedatabase.app/",
-projectId: "chat-58fef",
-storageBucket: "chat-58fef.firebasestorage.app",
-messagingSenderId: "40301981187",
-appId: "1:40301981187:web:8a0efad79a57321c7be836"
-};
-
-firebase.initializeApp(firebaseConfig);
-
-const db = firebase.database();
-const storage = firebase.storage();
-
-let currentRoom = '';
-let currentName = '';
-let replyMessage = null;
-
-const chatBox = document.getElementById('chat-box');
-const usersBox = document.getElementById('users');
-
-function generateRoomId(){
-
-const id = Math.random()
-.toString(36)
-.substring(2,7);
-
-document.getElementById('room').value = id;
-
-navigator.clipboard.writeText(id);
-
-alert('Room ID Copied');
-
-}
-
-function joinRoom(){
-
-currentName = document.getElementById('name').value.trim();
-currentRoom = document.getElementById('room').value.trim();
-
-if(!currentName || !currentRoom){
-alert('Enter Name & Room');
-return;
-}
-
-db.ref('rooms/' + currentRoom + '/users/' + currentName).set(true);
-
-db.ref('rooms/' + currentRoom + '/users/' + currentName)
-.onDisconnect()
-.remove();
-
-document.getElementById('join-screen').classList.add('hidden');
-document.getElementById('chat-screen').classList.remove('hidden');
-
-document.getElementById('room-name').textContent = currentRoom;
-
-loadUsers();
-loadMessages();
-
-db.ref('rooms/' + currentRoom + '/typing')
-.on('value',(snap)=>{
-
-document.getElementById('typing').innerText =
-snap.val() || '';
-
-});
-
-}
-
-function loadUsers(){
-
-db.ref('rooms/' + currentRoom + '/users')
-.on('value',(snapshot)=>{
-
-usersBox.innerHTML = '';
-
-const users = snapshot.val() || {};
-
-Object.keys(users).forEach((name)=>{
-
-const div = document.createElement('div');
-
-div.className =
-'bg-[#2a3942] px-3 py-1 rounded-full';
-
-div.textContent = name;
-
-usersBox.appendChild(div);
-
-});
-
-});
-
-}
-
-function loadMessages(){
-
-chatBox.innerHTML = '';
-
-db.ref('rooms/' + currentRoom + '/messages')
-.on('child_added',(snapshot)=>{
-
-const data = snapshot.val();
-
-markSeen(snapshot.key);
-
-addMessage(snapshot.key,data);
-
-});
-
-}
-
-function sendMessage(){
-
-const input = document.getElementById('message');
-
-const text = input.value.trim();
-
-if(!text && !replyMessage) return;
-
-db.ref('rooms/' + currentRoom + '/messages').push({
-
-name: currentName,
-text: text,
-reply: replyMessage || null,
-time: Date.now(),
-seenBy: {
-[currentName]: true
-}
-
-});
-
-input.value = '';
-
-replyMessage = null;
-
-document.getElementById('reply-box').classList.add('hidden');
-
-}
-
-function markSeen(messageId){
-
-db.ref('rooms/' + currentRoom + '/messages/' + messageId + '/seenBy/' + currentName)
-.set(true);
-
-}
-
-function deleteMessage(messageId){
-
-db.ref('rooms/' + currentRoom + '/messages/' + messageId)
-.remove();
-
-}
-
-
-function setReply(text){
-
-replyMessage = text;
-
-const box = document.getElementById('reply-box');
-
-box.classList.remove('hidden');
-
-box.innerText = 'Replying : ' + text;
-
-}
-
-document.getElementById('message')
-.addEventListener('input',()=>{
-
-if(!currentRoom) return;
-
-db.ref('rooms/' + currentRoom + '/typing')
-.set(currentName + ' is typing...');
-
-clearTimeout(window.typingTimeout);
-
-window.typingTimeout = setTimeout(()=>{
-
-db.ref('rooms/' + currentRoom + '/typing')
-.remove();
-
-},1000);
-
-});
-
-document.getElementById('imageInput')
-.addEventListener('change',async(e)=>{
-
-const file = e.target.files[0];
-
-if(!file) return;
-
-const fileName = Date.now() + '_' + file.name;
-
-const storageRef = storage.ref('chatImages/' + fileName);
-
-await storageRef.put(file);
-
-const imageUrl = await storageRef.getDownloadURL();
-
-db.ref('rooms/' + currentRoom + '/messages').push({
-
-name: currentName,
-image: imageUrl,
-time: Date.now(),
-seenBy: {
-[currentName]: true
-}
-
-});
-
-});
-
-
-function leaveChat(){
-
-db.ref('rooms/' + currentRoom + '/users/' + currentName)
-.remove();
-
-location.reload();
-
-}
-
-function addMessage(id,data){
-
-const mine = data.name === currentName;
-
-const wrapper = document.createElement('div');
-
-wrapper.className = mine
-? 'text-right'
-: 'text-left';
-
-const box = document.createElement('div');
-
-box.className = mine
-? 'bg-[#005c4b] inline-block px-4 py-2 rounded-2xl max-w-[80%]'
-: 'bg-[#202c33] inline-block px-4 py-2 rounded-2xl max-w-[80%]';
-
-const username = document.createElement('div');
-
-username.className =
-'text-[10px] opacity-70 mb-1';
-
-username.textContent = data.name;
-
-const message = document.createElement('div');
-
-message.className = 'text-sm break-words';
-
-message.textContent = data.text;
-
-const bottom = document.createElement('div');
-
-bottom.className =
-'flex justify-between items-center mt-2 gap-3';
-
-const seen = document.createElement('div');
-
-seen.className =
-'text-[10px] opacity-70';
-
-if(mine){
-
-const seenCount = data.seenBy
-? Object.keys(data.seenBy).length
-: 1;
-
-seen.innerHTML = seenCount > 1
-? '✓✓ Seen'
-: '✓ Sent';
-
-}
-
-const delBtn = document.createElement('button');
-
-delBtn.className =
-'text-[10px] bg-red-500 px-2 py-1 rounded-lg';
-
-delBtn.textContent = 'Delete';
-
-delBtn.onclick = () => deleteMessage(id);
-
-box.appendChild(username);
-box.appendChild(message);
-
-if(data.reply){
-
-const reply = document.createElement('div');
-
-reply.className =
-'text-xs opacity-70 border-l-2 border-green-400 pl-2 mb-2';
-
-reply.textContent = data.reply;
-
-box.insertBefore(reply,message);
-
-}
-
-if(data.image){
-
-const img = document.createElement('img');
-
-img.src = data.image;
-
-img.className =
-'rounded-xl mt-2 max-w-[220px]';
-
-box.appendChild(img);
-
-}
-
-if(mine){
-
-bottom.appendChild(seen);
-bottom.appendChild(delBtn);
-
-box.appendChild(bottom);
-
-}
-
-box.addEventListener('click',()=>{
-
-setReply(data.text || 'Image');
-
-});
-
-wrapper.appendChild(box);
-
-chatBox.appendChild(wrapper);
-
-chatBox.scrollTop = chatBox.scrollHeight;
-
-db.ref('rooms/' + currentRoom + '/messages/' + id + '/seenBy')
-.on('value',(snap)=>{
-
-if(mine){
-
-const seenUsers = snap.val() || {};
-
-const count = Object.keys(seenUsers).length;
-
-seen.innerHTML = count > 1
-? '✓✓ Seen'
-: '✓ Sent';
-
-}
-
-});
-
-}
-
-document.getElementById('message')
-.addEventListener('keypress',(e)=>{
-
-if(e.key === 'Enter'){
-sendMessage();
-}
-
-});
-
-</script>
+  <!-- JOIN SCREEN (MOBILE & OTP LOGIN) -->
+  <div id="join-screen" class="hidden h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-[#111b21] p-6 rounded-3xl">
+      <h1 class="text-3xl font-black text-center text-green-400 mb-6">
+        AMAN CHAT
+      </h1>
+
+      <div class="space-y-3">
+        <!-- Name Input -->
+        <input id="name" placeholder="Your Name" class="w-full bg-[#202c33] rounded-xl px-4 py-3 outline-none">
+
+        <!-- STEP 1: Phone Number Input Layer -->
+        <div id="phone-container" class="space-y-3">
+          <input id="phone-number" placeholder="Mobile Number (e.g., +919876543210)" class="w-full bg-[#202c33] rounded-xl px-4 py-3 outline-none">
+          <button onclick="sendOTP()" class="w-full bg-green-500 text-black py-3 rounded-xl font-bold transition hover:bg-green-600">
+            Send OTP
+          </button>
+        </div>
+
+        <!-- STEP 2: OTP Entry Layer (Hidden by Default) -->
+        <div id="otp-container" class="hidden space-y-3">
+          <input id="otp-code" placeholder="Enter 6-Digit OTP" class="w-full bg-[#202c33] rounded-xl px-4 py-3 outline-none text-center tracking-widest font-bold" maxlength="6">
+          <button onclick="verifyOTP()" class="w-full bg-green-500 text-black py-3 rounded-xl font-bold transition hover:bg-green-600">
+            Verify & Login
+          </button>
+        </div>
+
+        <!-- Firebase Invisible reCAPTCHA Container -->
+        <div id="recaptcha-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT SCREEN -->
+  <div id="chat-screen" class="hidden h-screen flex flex-col overflow-hidden">
+    <!-- HEADER -->
+    <div class="bg-[#202c33] p-4 flex justify-between items-center">
+      <div>
+        <h2 class="font-bold text-lg">
+          Chat Dashboard: <span id="user-display-name" class="text-green-400"></span>
+        </h2>
+        <div id="users" class="flex gap-2 flex-wrap mt-2 text-xs"></div>
+      </div>
+      <button onclick="leaveChat()" class="bg-red-500 px-4 py-2 rounded-xl text-sm font-bold transition hover:bg-red-600">
+        Logout
+      </button>
+    </div>
+
+    <!-- CHAT BOX -->
+    <div id="chat-box" class="flex-1 overflow-y-auto p-3 space-y-3 pb-24"></div>
+
+    <div id="typing" class="px-4 text-xs text-green-400"></div>
+
+    <div id="reply-box" class="hidden bg-[#202c33] mx-3 mb-2 px-3 py-2 rounded-xl text-sm"></div>
+
+    <!-- INPUT LAYER -->
+    <div class="bg-[#202c33] p-3 flex gap-2 fixed bottom-0 left-0 right-0 z-50">
+      <input id="message" placeholder="Type message" class="flex-1 bg-[#2a3942] rounded-full px-4 py-3 outline-none">
+      <button onclick="sendMessage()" class="bg-green-500 text-black w-12 h-12 rounded-full font-bold flex items-center justify-center text-xl">
+        ➤
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDjwR6uPPL4qxJhFVwb2rPcbfz0rIoZuAg",
+      authDomain: "chat-58fef.firebaseapp.com",
+      databaseURL: "https://chat-58fef-default-rtdb.asia-southeast1.firebasedatabase.app/",
+      projectId: "chat-58fef",
+      messagingSenderId: "40301981187",
+      appId: "1:40301981187:web:8a0efad79a57321c7be836"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+
+    const db = firebase.database();
+    const auth = firebase.auth();
+
+    let currentName = '';
+    let currentUserPhone = '';
+    let currentRoom = 'global_lounge'; // Fallback room for system testing
+    let replyMessage = null;
+
+    const chatBox = document.getElementById('chat-box');
+    const usersBox = document.getElementById('users');
+
+    // Initialize Identity Safety (Invisible reCAPTCHA)
+    window.onload = function() {
+      window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        'size': 'invisible'
+      });
+    };
+
+    // Auto-Login Logic: Check if user is already signed in
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        // Agar user pehle se logged in hai, toh uska data nikalein
+        currentUserPhone = user.phoneNumber;
+        
+        db.ref('users/' + btoa(currentUserPhone)).once('value', (snapshot) => {
+          const userData = snapshot.val();
+          if (userData) {
+            currentName = userData.name;
+          } else {
+            currentName = "User";
+          }
+
+          // Automatically update online status
+          db.ref('users/' + btoa(currentUserPhone) + '/online').set(true);
+          db.ref('users/' + btoa(currentUserPhone) + '/online').onDisconnect().set(false);
+
+          // Screens switch karein (Direct Chat Dashboard par le jayein)
+          document.getElementById('join-screen').classList.add('hidden');
+          document.getElementById('chat-screen').classList.remove('hidden');
+          document.getElementById('user-display-name').textContent = currentName;
+
+          // Initialize Engine listeners
+          loadUsers();
+          loadMessages();
+
+          db.ref('rooms/' + currentRoom + '/typing').on('value', (snap) => {
+            document.getElementById('typing').innerText = snap.val() || '';
+          });
+        });
+      } else {
+        // Agar user logged in nahi hai, toh use login screen dikhao
+        document.getElementById('join-screen').classList.remove('hidden');
+        document.getElementById('chat-screen').classList.add('hidden');
+      }
+    });
+
+    // Step 1: Send OTP to User's Phone
+    function sendOTP() {
+      currentName = document.getElementById('name').value.trim();
+      const phoneNumber = document.getElementById('phone-number').value.trim();
+
+      if (!currentName || !phoneNumber) {
+        alert('Please fill out both your Name and Mobile Number.');
+        return;
+      }
+
+      const appVerifier = window.recaptchaVerifier;
+
+      auth.signInWithPhoneNumber(phoneNumber, appVerifier)
+        .then((confirmationResult) => {
+          window.confirmationResult = confirmationResult;
+          
+          // Switch to OTP display layer
+          document.getElementById('phone-container').classList.add('hidden');
+          document.getElementById('otp-container').classList.remove('hidden');
+          alert('Verification code sent successfully!');
+        })
+        .catch((error) => {
+          alert('Failed to send SMS: ' + error.message);
+          console.error(error);
+        });
+    }
+
+    // Step 2: Validate OTP and Grant Entrance
+    function verifyOTP() {
+      const code = document.getElementById('otp-code').value.trim();
+
+      if (!code) {
+        alert('Please type in the 6-digit OTP code sent to your mobile.');
+        return;
+      }
+
+      window.confirmationResult.confirm(code)
+        .then((result) => {
+          const user = result.user;
+          currentUserPhone = user.phoneNumber;
+
+          // Register user status dynamically under their unique phone identifier
+          db.ref('users/' + btoa(currentUserPhone)).set({
+            name: currentName,
+            phone: currentUserPhone,
+            uid: user.uid,
+            online: true
+          });
+
+          // Configure standard active user teardown on close/disconnect
+          db.ref('users/' + btoa(currentUserPhone) + '/online').onDisconnect().set(false);
+
+          // UI Transitions
+          document.getElementById('join-screen').classList.add('hidden');
+          document.getElementById('chat-screen').classList.remove('hidden');
+          document.getElementById('user-display-name').textContent = currentName;
+
+          // Initialize Engine listeners
+          loadUsers();
+          loadMessages();
+
+          db.ref('rooms/' + currentRoom + '/typing').on('value', (snap) => {
+            document.getElementById('typing').innerText = snap.val() || '';
+          });
+        })
+        .catch((error) => {
+          alert('Incorrect OTP provided. Please review and try again.');
+          console.error(error);
+        });
+    }
+
+    // Load registered online users
+    function loadUsers() {
+      db.ref('users').on('value', (snapshot) => {
+        usersBox.innerHTML = '';
+        const users = snapshot.val() || {};
+        
+        Object.keys(users).forEach((key) => {
+          if(users[key].online) {
+            const div = document.createElement('div');
+            div.className = 'bg-[#2a3942] px-3 py-1 rounded-full text-green-400 border border-green-900/30';
+            div.textContent = users[key].name;
+            usersBox.appendChild(div);
+          }
+        });
+      });
+    }
+
+    // Stream incoming room messages
+    function loadMessages() {
+      chatBox.innerHTML = '';
+      db.ref('rooms/' + currentRoom + '/messages').on('child_added', (snapshot) => {
+        const data = snapshot.val();
+        markSeen(snapshot.key);
+        addMessage(snapshot.key, data);
+      });
+    }
+
+    // Push written message payload to Firebase
+    function sendMessage() {
+      const input = document.getElementById('message');
+      const text = input.value.trim();
+
+      if (!text && !replyMessage) return;
+
+      db.ref('rooms/' + currentRoom + '/messages').push({
+        name: currentName,
+        text: text,
+        reply: replyMessage || null,
+        time: Date.now(),
+        seenBy: {
+          [btoa(currentUserPhone)]: true
+        }
+      });
+
+      input.value = '';
+      replyMessage = null;
+      document.getElementById('reply-box').classList.add('hidden');
+    }
+
+    function markSeen(messageId) {
+      if(!currentUserPhone) return;
+      db.ref('rooms/' + currentRoom + '/messages/' + messageId + '/seenBy/' + btoa(currentUserPhone)).set(true);
+    }
+
+    function deleteMessage(messageId) {
+      db.ref('rooms/' + currentRoom + '/messages/' + messageId).remove();
+    }
+
+    function setReply(text) {
+      replyMessage = text;
+      const box = document.getElementById('reply-box');
+      box.classList.remove('hidden');
+      box.innerText = 'Replying to: ' + text;
+    }
+
+    // Typing Status Listener
+    document.getElementById('message').addEventListener('input', () => {
+      if (!currentUserPhone) return;
+
+      db.ref('rooms/' + currentRoom + '/typing').set(currentName + ' is typing...');
+      clearTimeout(window.typingTimeout);
+
+      window.typingTimeout = setTimeout(() => {
+        db.ref('rooms/' + currentRoom + '/typing').remove();
+      }, 1000);
+    });
+
+    // Graceful Exit / Logout Routine
+    function leaveChat() {
+      if(currentUserPhone) {
+        db.ref('users/' + btoa(currentUserPhone) + '/online').set(false);
+      }
+      auth.signOut().then(() => {
+        location.reload();
+      });
+    }
+
+    // Append dynamic DOM message tiles
+    function addMessage(id, data) {
+      const mine = data.name === currentName;
+      const wrapper = document.createElement('div');
+      wrapper.className = mine ? 'text-right' : 'text-left';
+
+      const box = document.createElement('div');
+      box.className = mine
+        ? 'bg-[#005c4b] inline-block px-4 py-2 rounded-2xl max-w-[80%]'
+        : 'bg-[#202c33] inline-block px-4 py-2 rounded-2xl max-w-[80%]';
+
+      const username = document.createElement('div');
+      username.className = 'text-[10px] opacity-70 mb-1';
+      username.textContent = data.name;
+
+      const message = document.createElement('div');
+      message.className = 'text-sm break-words';
+      message.textContent = data.text;
+
+      const bottom = document.createElement('div');
+      bottom.className = 'flex justify-between items-center mt-2 gap-3';
+
+      const seen = document.createElement('div');
+      seen.className = 'text-[10px] opacity-70';
+
+      if (mine) {
+        const seenCount = data.seenBy ? Object.keys(data.seenBy).length : 1;
+        seen.innerHTML = seenCount > 1 ? '✓✓ Seen' : '✓ Sent';
+      }
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'text-[10px] bg-red-500 px-2 py-1 rounded-lg transition hover:bg-red-600';
+      delBtn.textContent = 'Delete';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        deleteMessage(id);
+      };
+
+      box.appendChild(username);
+      box.appendChild(message);
+
+      if (data.reply) {
+        const reply = document.createElement('div');
+        reply.className = 'text-xs opacity-70 border-l-2 border-green-400 pl-2 mb-2';
+        reply.textContent = data.reply;
+        box.insertBefore(reply, message);
+      }
+
+      if (mine) {
+        bottom.appendChild(seen);
+        bottom.appendChild(delBtn);
+        box.appendChild(bottom);
+      }
+
+      box.addEventListener('click', () => {
+        setReply(data.text || 'Message');
+      });
+
+      wrapper.appendChild(box);
+      chatBox.appendChild(wrapper);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      db.ref('rooms/' + currentRoom + '/messages/' + id + '/seenBy').on('value', (snap) => {
+        if (mine) {
+          const seenUsers = snap.val() || {};
+          const count = Object.keys(seenUsers).length;
+          seen.innerHTML = count > 1 ? '✓✓ Seen' : '✓ Sent';
+        }
+      });
+    }
+
+    document.getElementById('message').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+  </script>
 
 </body>
 </html>
