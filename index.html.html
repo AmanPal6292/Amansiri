@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIRI CHAT</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <style>
+    body {
+      background: #0b141a;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="join-screen" class="hidden h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-[#111b21] p-8 rounded-3xl text-center shadow-xl">
+      <h1 class="text-3xl font-black text-green-400 mb-2">AMAN CHAT</h1>
+      <p class="text-gray-400 text-sm mb-8">Connect securely with your friends using Email</p>
+
+      <button onclick="loginWithGoogle()" class="w-full bg-white text-black font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-3 transition hover:bg-gray-200 cursor-pointer shadow-md">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/provider/google.svg" alt="Google" class="w-5 h-5">
+        Sign in with Google
+      </button>
+    </div>
+  </div>
+
+  <div id="chat-screen" class="hidden h-screen flex flex-col overflow-hidden">
+    
+    <div class="bg-[#202c33] p-4 space-y-3 shadow-md">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="font-bold text-lg">Welcome, <span id="user-display-name" class="text-green-400"></span></h2>
+          <p id="user-display-email" class="text-xs text-gray-400"></p>
+        </div>
+        <button onclick="logoutRoutine()" class="bg-red-500 px-4 py-2 rounded-xl text-sm font-bold transition hover:bg-red-600 cursor-pointer">
+          Logout
+        </button>
+      </div>
+
+      <div class="flex gap-2">
+        <input id="search-email" type="email" placeholder="Enter friend's email to chat..." class="flex-1 bg-[#2a3942] rounded-xl px-4 py-2 text-sm outline-none border border-transparent focus:border-green-500">
+        <button onclick="startChatByEmail()" class="bg-green-500 text-black px-4 py-2 rounded-xl text-sm font-bold transition hover:bg-green-600 cursor-pointer">
+          Start Chat
+        </button>
+      </div>
+    </div>
+
+    <div id="chat-box" class="flex-1 overflow-y-auto p-3 space-y-3 pb-24 bg-[#0b141a]">
+      <div id="no-chat-template" class="h-full flex items-center justify-center text-gray-500 text-sm">
+        Search a friend's email above to start chatting!
+      </div>
+    </div>
+
+    <div id="typing" class="px-4 text-xs text-green-400 bg-[#0b141a]"></div>
+    <div id="reply-box" class="hidden bg-[#202c33] mx-3 mb-2 px-3 py-2 rounded-xl text-sm"></div>
+
+    <div id="input-area" class="hidden bg-[#202c33] p-3 flex gap-2 fixed bottom-0 left-0 right-0 z-50">
+      <input id="message" placeholder="Type message" class="flex-1 bg-[#2a3942] rounded-full px-4 py-3 outline-none text-sm">
+      <button onclick="sendMessage()" class="bg-green-500 text-black w-12 h-12 rounded-full font-bold flex items-center justify-center text-xl transition hover:bg-green-600 cursor-pointer">
+        ➤
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDjwR6uPPL4qxJhFVwb2rPcbfz0rIoZuAg",
+      authDomain: "chat-58fef.firebaseapp.com",
+      databaseURL: "https://chat-58fef-default-rtdb.asia-southeast1.firebasedatabase.app/",
+      projectId: "chat-58fef",
+      messagingSenderId: "40301981187",
+      appId: "1:40301981187:web:8a0efad79a57321c7be836"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+
+    const db = firebase.database();
+    const auth = firebase.auth();
+
+    let myName = '';
+    let myEmail = '';
+    let myUid = '';
+    let currentChatId = ''; 
+    let replyMessage = null;
+
+    const chatBox = document.getElementById('chat-box');
+
+    // Auto-Login Session Listener
+    auth.onAuthStateChanged((user) => {
+      if (user) {
+        myName = user.displayName || "User";
+        myEmail = user.email;
+        myUid = user.uid;
+
+        // Firebase database user register entry
+        db.ref('users/' + btoa(myEmail)).set({
+          name: myName,
+          email: myEmail,
+          uid: myUid,
+          online: true
+        });
+
+        db.ref('users/' + btoa(myEmail) + '/online').onDisconnect().set(false);
+
+        // Screens transition
+        document.getElementById('join-screen').classList.add('hidden');
+        document.getElementById('chat-screen').classList.remove('hidden');
+        document.getElementById('user-display-name').textContent = myName;
+        document.getElementById('user-display-email').textContent = myEmail;
+      } else {
+        document.getElementById('join-screen').classList.remove('hidden');
+        document.getElementById('chat-screen').classList.add('hidden');
+      }
+    });
+
+    // Google Sign-In Trigger
+    function loginWithGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch((error) => {
+        alert("Google Sign-In Failed: " + error.message);
+      });
+    }
+
+    // Search and Initiate Chat Room by Friend's Email
+    function startChatByEmail() {
+      const targetEmail = document.getElementById('search-email').value.trim().toLowerCase();
+
+      if (!targetEmail) {
+        alert("Please enter an email address.");
+        return;
+      }
+      if (targetEmail === myEmail.toLowerCase()) {
+        alert("You cannot search or chat with your own email.");
+        return;
+      }
+
+      // Check if user exists in database
+      db.ref('users/' + btoa(targetEmail)).once('value', (snapshot) => {
+        const friendData = snapshot.val();
+        if (!friendData) {
+          alert("This email is not registered on Aman Chat yet. Ask them to login first!");
+          return;
+        }
+
+        // Generate unique static chat ID combining both UIDs alphabetically
+        const friendUid = friendData.uid;
+        currentChatId = myUid < friendUid ? `${myUid}_${friendUid}` : `${friendUid}_${myUid}`;
+
+        // Clear chat area templates and show text bar
+        chatBox.innerHTML = '';
+        document.getElementById('input-area').classList.remove('hidden');
+
+        // Start listening to conversations
+        loadMessages(currentChatId);
+
+        // Typing status initialization
+        db.ref('chats/' + currentChatId + '/typing').on('value', (snap) => {
+          const typingUser = snap.val();
+          document.getElementById('typing').innerText = (typingUser && typingUser !== myName) ? typingUser + ' is typing...' : '';
+        });
+      });
+    }
+
+    // Stream conversation messages from dynamic chat room node
+    function loadMessages(chatId) {
+      db.ref('chats/' + chatId + '/messages').off();
+      
+      db.ref('chats/' + chatId + '/messages').on('child_added', (snapshot) => {
+        const data = snapshot.val();
+        markSeen(snapshot.key);
+        addMessage(snapshot.key, data);
+      });
+    }
+
+    // Push new text message to dynamic chat node
+    function sendMessage() {
+      const input = document.getElementById('message');
+      const text = input.value.trim();
+
+      if (!text && !replyMessage) return;
+      if (!currentChatId) return;
+
+      db.ref('chats/' + currentChatId + '/messages').push({
+        name: myName,
+        email: myEmail,
+        text: text,
+        reply: replyMessage || null,
+        time: Date.now(),
+        seenBy: {
+          [btoa(myEmail)]: true
+        }
+      });
+
+      input.value = '';
+      replyMessage = null;
+      document.getElementById('reply-box').classList.add('hidden');
+    }
+
+    function markSeen(messageId) {
+      if (!currentChatId || !myEmail) return;
+      db.ref('chats/' + currentChatId + '/messages/' + messageId + '/seenBy/' + btoa(myEmail)).set(true);
+    }
+
+    function deleteMessage(messageId) {
+      if (currentChatId) {
+        db.ref('chats/' + currentChatId + '/messages/' + messageId).remove();
+        location.reload(); 
+      }
+    }
+
+    function setReply(text) {
+      replyMessage = text;
+      const box = document.getElementById('reply-box');
+      box.classList.remove('hidden');
+      box.innerText = 'Replying to: ' + text;
+    }
+
+    // Typing Event Broadcaster
+    document.getElementById('message').addEventListener('input', () => {
+      if (!currentChatId) return;
+
+      db.ref('chats/' + currentChatId + '/typing').set(myName);
+      clearTimeout(window.typingTimeout);
+
+      window.typingTimeout = setTimeout(() => {
+        db.ref('chats/' + currentChatId + '/typing').remove();
+      }, 1000);
+    });
+
+    // Signout Execution
+    function logoutRoutine() {
+      if (myEmail) {
+        db.ref('users/' + btoa(myEmail) + '/online').set(false);
+      }
+      auth.signOut().then(() => {
+        location.reload();
+      });
+    }
+
+    // Render Message Tiles onto Viewport Dom
+    function addMessage(id, data) {
+      const mine = data.email === myEmail;
+      const wrapper = document.createElement('div');
+      wrapper.className = mine ? 'text-right' : 'text-left';
+
+      const box = document.createElement('div');
+      box.className = mine
+        ? 'bg-[#005c4b] inline-block px-4 py-2 rounded-2xl max-w-[80%] text-left shadow-sm'
+        : 'bg-[#202c33] inline-block px-4 py-2 rounded-2xl max-w-[80%] text-left shadow-sm';
+
+      const username = document.createElement('div');
+      username.className = 'text-[10px] text-green-400 font-bold mb-1 opacity-90';
+      username.textContent = mine ? "You" : data.name;
+
+      const message = document.createElement('div');
+      message.className = 'text-sm break-words text-white';
+      message.textContent = data.text;
+
+      const bottom = document.createElement('div');
+      bottom.className = 'flex justify-between items-center mt-2 gap-3';
+
+      const seen = document.createElement('div');
+      seen.className = 'text-[10px] text-gray-400 opacity-80';
+
+      if (mine) {
+        const seenCount = data.seenBy ? Object.keys(data.seenBy).length : 1;
+        seen.innerHTML = seenCount > 1 ? '✓✓ Seen' : '✓ Sent';
+      }
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'text-[10px] bg-red-500/80 text-white px-2 py-0.5 rounded-md transition hover:bg-red-600 cursor-pointer';
+      delBtn.textContent = 'Delete';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        deleteMessage(id);
+      };
+
+      box.appendChild(username);
+      box.appendChild(message);
+
+      if (data.reply) {
+        const reply = document.createElement('div');
+        reply.className = 'text-xs text-gray-300 opacity-80 border-l-2 border-green-400 pl-2 mb-2 italic bg-black/10 p-1 rounded';
+        reply.textContent = data.reply;
+        box.insertBefore(reply, message);
+      }
+
+      if (mine) {
+        bottom.appendChild(seen);
+        bottom.appendChild(delBtn);
+        box.appendChild(bottom);
+      }
+
+      box.addEventListener('click', () => {
+        setReply(data.text);
+      });
+
+      wrapper.appendChild(box);
+      chatBox.appendChild(wrapper);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      db.ref('chats/' + currentChatId + '/messages/' + id + '/seenBy').on('value', (snap) => {
+        if (mine) {
+          const seenUsers = snap.val() || {};
+          const count = Object.keys(seenUsers).length;
+          seen.innerHTML = count > 1 ? '✓✓ Seen' : '✓ Sent';
+        }
+      });
+    }
+
+    document.getElementById('message').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+  </script>
+
+</body>
+</html>
